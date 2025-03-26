@@ -14,6 +14,15 @@ class SpotifyService:
             scope=Config.SPOTIFY_SCOPES
         ))
 
+    def _get_audio_features_batch(self, track_ids):
+        """Get audio features for a batch of tracks."""
+        try:
+            audio_features = self.spotify.audio_features(track_ids)
+            return {track_id: features for track_id, features in zip(track_ids, audio_features) if features}
+        except Exception as e:
+            logger.error(f"Error getting audio features: {str(e)}")
+            return {}
+
     def get_recommendations(self, limit=10):
         try:
             results = self.spotify.recommendations(
@@ -122,6 +131,7 @@ class SpotifyService:
             
             # Get all tracks from the playlist
             tracks = []
+            track_ids = []
             offset = 0
             limit = 100  # Maximum allowed by Spotify API
             
@@ -135,7 +145,9 @@ class SpotifyService:
                 for item in results['items']:
                     track = item['track']
                     if track:  # Check if track exists (not None)
+                        track_ids.append(track['id'])
                         tracks.append({
+                            'id': track['id'],
                             'name': track['name'],
                             'artist': track['artists'][0]['name'],
                             'album': track['album']['name'],
@@ -143,7 +155,8 @@ class SpotifyService:
                             'popularity': track['popularity'],
                             'preview_url': track['preview_url'],
                             'external_url': track['external_urls']['spotify'],
-                            'added_at': item['added_at']
+                            'added_at': item['added_at'],
+                            'uri': track['uri']
                         })
                 
                 # Check if there are more tracks to fetch
@@ -151,6 +164,32 @@ class SpotifyService:
                     break
                     
                 offset += limit
+
+            # Get audio features for all tracks in batches of 100
+            audio_features = {}
+            for i in range(0, len(track_ids), 100):
+                batch_ids = track_ids[i:i + 100]
+                batch_features = self._get_audio_features_batch(batch_ids)
+                audio_features.update(batch_features)
+
+            # Add audio features to track data
+            for track in tracks:
+                features = audio_features.get(track['id'], {})
+                if features:
+                    track.update({
+                        'danceability': features['danceability'],
+                        'energy': features['energy'],
+                        'key': features['key'],
+                        'loudness': features['loudness'],
+                        'mode': features['mode'],
+                        'speechiness': features['speechiness'],
+                        'acousticness': features['acousticness'],
+                        'instrumentalness': features['instrumentalness'],
+                        'liveness': features['liveness'],
+                        'valence': features['valence'],
+                        'tempo': features['tempo'],
+                        'time_signature': features['time_signature']
+                    })
             
             return {
                 'playlist_name': playlist['name'],
