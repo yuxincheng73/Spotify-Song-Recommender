@@ -17,4 +17,9 @@ env/
 .idea/
 
 # Misc
-.DS_Store 
+.DS_Store
+
+# Spotify
+.cache
+backend/.cache
+**/.cache 

@@ -17,7 +17,9 @@ class SpotifyService:
     def _get_audio_features_batch(self, track_ids):
         """Get audio features for a batch of tracks."""
         try:
+            logger.info(f"Getting audio features for {len(track_ids)} tracks")
             audio_features = self.spotify.audio_features(track_ids)
+            logger.info(f"Retrieved audio features: {len([f for f in audio_features if f])} features found")
             return {track_id: features for track_id, features in zip(track_ids, audio_features) if features}
         except Exception as e:
             logger.error(f"Error getting audio features: {str(e)}")
